@@ -1,6 +1,8 @@
 package com.arunKumar.watchlistApp.services;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -37,8 +39,25 @@ public class DatabaseService {
 
 
 	public List<Movie> getAllMovies() {
+		List<Movie> movies = movieRepo.findAll();
 
-		return movieRepo.findAll();
+		// Sort movies by priority: "H" > "M" > "L"
+		return movies.stream().sorted(Comparator.comparingInt(movie -> getPriorityValue(movie.getPriority())))
+				.collect(Collectors.toList());
+	}
+
+	// Helper method to map priority to a sorting value
+	private int getPriorityValue(String priority) {
+		switch (priority) {
+		case "H":
+			return 1; // High priority comes first
+		case "M":
+			return 2; // Medium priority comes next
+		case "L":
+			return 3; // Low priority comes last
+		default:
+			return 4; // Handle missing or unknown priorities
+		}
 	}
 
 	public Movie getMovieById(Integer id) {
@@ -54,5 +73,9 @@ public class DatabaseService {
 		toBeUpdated.setPriority(movie.getPriority());
 
 		movieRepo.save(toBeUpdated);
-		}
 	}
+
+	public void delete(Integer id) {
+		movieRepo.deleteById(id); // Delete the movie by its ID
+	}
+}

@@ -16,25 +16,54 @@ import org.springframework.web.servlet.view.RedirectView;
 
 import com.arunKumar.watchlistApp.entity.Movie;
 import com.arunKumar.watchlistApp.services.DatabaseService;
+import com.arunKumar.watchlistApp.services.MovieService;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.validation.Valid;
 
 @Controller
 public class MovieController {
+
 	@Autowired
 	DatabaseService databaseService;
 
+	@Autowired
+	MovieService movieService;
+
 	@GetMapping("/")
-	public String home() {
-		return "index";
-		
+	public ModelAndView home() {
+		ModelAndView modelAndView = new ModelAndView("index");
+
+		// Fetch popular movies from the TMDB API
+		String popularMoviesJson = movieService.getPopularMovies();
+
+		// Use Jackson to parse the JSON response into a list of movie titles or other
+		// data
+		try {
+			ObjectMapper objectMapper = new ObjectMapper();
+			JsonNode jsonNode = objectMapper.readTree(popularMoviesJson);
+			if (jsonNode.has("results")) {
+				modelAndView.addObject("popularMovies", jsonNode.get("results"));
+			} else {
+				System.err.println("No 'results' key found in response");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			modelAndView.addObject("errorMessage", "Failed to load popular movies.");
+		}
+
+
+		return modelAndView;
 	}
+
+
+
+
 	@GetMapping("/watchlistItemForm")
 	public ModelAndView showWatchListForm(@RequestParam(required = false) Integer id) {
-
-//		System.out.println(id);
 		String viewName = "watchlistItemForm";
-
 		Map<String, Object> model = new HashMap<>();
 
 		if (id == null) {
@@ -42,13 +71,6 @@ public class MovieController {
 		} else {
 			model.put("watchlistItem", databaseService.getMovieById(id));
 		}
-//		Movie dummyMovie = new Movie();
-//		dummyMovie.setTitle("dummy");
-//		dummyMovie.setRating(0);
-//		dummyMovie.setPriority("Low");
-//		dummyMovie.setComment("john doe");
-//		
-//		model.put("watchlistItem", dummyMovie);
 
 		return new ModelAndView(viewName, model);
 	}
@@ -58,13 +80,8 @@ public class MovieController {
 			BindingResult bindingResult) {
 
 		if (bindingResult.hasErrors()) {
-			System.out.println(bindingResult.hasErrors());
-			// if errors are there, redisplay the form and let user enter again"
 			return new ModelAndView("watchlistItemForm");
 		}
-		/*
-		 * if(id == null) { create new movie } else { update }
-		 */
 
 		Integer id = movie.getId();
 		if (id == null) {
@@ -79,10 +96,16 @@ public class MovieController {
 		return new ModelAndView(rd);
 	}
 
+	@GetMapping("/deleteItem")
+	public RedirectView deleteItem(@RequestParam("id") Integer id) {
+		databaseService.delete(id);
+		RedirectView redirectView = new RedirectView();
+		redirectView.setUrl("/watchlist");
+		return redirectView;
+	}
+
 	@GetMapping("/watchlist")
 	public ModelAndView getWatchlist() {
-		// TODO Auto-generated method stub
-
 		String viewName = "watchlist";
 		Map<String, Object> model = new HashMap<>();
 		List<Movie> movieList = databaseService.getAllMovies();
@@ -91,4 +114,3 @@ public class MovieController {
 		return new ModelAndView(viewName, model);
 	}
 }
-
